@@ -3,7 +3,8 @@ Analysis of a survey
 
 
 
-Create a model for the response variable you are assigned to
+Create a model for the response variable you are assigned to (assignments are 
+after survey questions)
 
 
 ## Questions
@@ -20,3 +21,7 @@ Create a model for the response variable you are assigned to
 ![Question10](https://github.com/fdac18/Miniproject3/blob/master/Q10.png)
 ![Question11](https://github.com/fdac18/Miniproject3/blob/master/Q11.png)
 ![Question12](https://github.com/fdac18/Miniproject3/blob/master/Q12.png)
+
+
+## Model response variable
+
