@@ -25,14 +25,14 @@ after survey questions)
 
 ## Model response variable
 
-| number  | GitHub Username | NetID | Name |
+| Response  | GitHub Username | NetID | Name |
 |:-:|:-:|:-:|---|
-|  | 3PIV | pprovins | Provins IV, Preston |
-|  | BrettBass13 | bbass11 | Bass, Brett Czech |
-|  | CipherR9 | gyj992 | Johnson, Rojae Antonio |
-|  | Colsarcol | cmawhinn | Mawhinney, Colin Joseph |
-|  | EvanEzell | eezell3 | Ezell, Evan Collin |
-| 5 | MikeynJerry | jdunca51 | Duncan, Jerry |
+| Resolves Prooblems quickly | 3PIV | pprovins | Provins IV, Preston |
+| Resolves Prooblems quickly | BrettBass13 | bbass11 | Bass, Brett Czech |
+| Resolves Prooblems quickly | CipherR9 | gyj992 | Johnson, Rojae Antonio |
+| Historic Reputation | Colsarcol | cmawhinn | Mawhinney, Colin Joseph |
+| Historic Reputation | EvanEzell | eezell3 | Ezell, Evan Collin |
+| Historic Reputation | MikeynJerry | jdunca51 | Duncan, Jerry |
 | 6 | Tasmia | trahman4 | Rahman, Tasmia |
 | 7 | awilki13 | awilki13 | Wilkinson, Alex Webb |
 | 8 | bryanpacep1 | jpace7 | Pace, Jonathan Bryan |
