@@ -26,7 +26,7 @@ For extra credit please provide a recommendation on how to improve the survey, p
 ![Question11](https://github.com/fdac18/Miniproject3/blob/master/Q11.png)
 ![Question12](https://github.com/fdac18/Miniproject3/blob/master/Q12.png)
 
-## Meaning of fields
+## Variable abbreviations
 |Columns|Meaning|
 |:-:|---|
 |PG1PsnUse|	For personal work and/or research use
