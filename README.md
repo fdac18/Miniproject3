@@ -28,7 +28,7 @@ For extra credit please provide a recommendation on how to improve the survey, p
 
 ## Meaning of fields
 |Columns|Meaning|
-|:-:|:-:|:-:|---|
+|:-:|---|
 |PG1PsnUse|	For personal work and/or research use
 |PG1WdAuth|	For a wider audience, such as developers of other packages or other software
 |PG1Trn |	For a training / class that I took
