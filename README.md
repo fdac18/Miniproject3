@@ -29,33 +29,33 @@ For extra credit please provide a recommendation on how to improve the survey, p
 ## Meaning of fields
 |Columns|Meaning|
 |:-:|:-:|:-:|---|
-PG1PsnUse|	For personal work and/or research use
-PG1WdAuth|	For a wider audience, such as developers of other packages or other software
-PG1Trn |	For a training / class that I took
-PG1Other|	Other purposes
-PG4Dtr0_6|	Detractors (0-6)
-PG4Psv7_8|	Passives (7-8)
-PG4Prm9_10|	Promoters (9-10)
-PG4AllResp|	All Response
-PG5_1RRPQ|	Resolve Reported Problems Quickly
-PG5_2BNUI|	Backlog / # of Unresolved Issues
-PG5_3HDS|	Helpful Discussion on StackExchange
-PG5_4VGP|	Visible Growth in Popularity
-PG5_5PHR|	Package's Historic Reputation
-PG5_6SSYOP|	Scale / Size of Your Own Project
-PG5_7NDYP|	# Developers of Your Project
-PG5_8CP|	Computing Performances
-PG5_9FRP|	"Familiarity with Related Packages"
-PG5_10RPA|	Reputation of the Package's Authors
-PG5_11NSG|	# of Stars on GitHub
-PG5_12NWG|	# of Watchers on GitHub
-PG5_13NFG|	# of Forks on GitHub
-PGXResp|	Response time of question on page X
-PGXSubmit|	The submission time of page X
-PG5_XOrder|	The order of 13 factors the recipient take to deal with question on Page 5
-PG5_XTime|	The completion time of dealing with factor X (e.g. 9 -> PG5_9FRP) on Page 5
-PG0Dis|	Participati Display(Hours)
-PG0Shown|	Participants Shown
+|PG1PsnUse|	For personal work and/or research use
+|PG1WdAuth|	For a wider audience, such as developers of other packages or other software
+|PG1Trn |	For a training / class that I took
+|PG1Other|	Other purposes
+|PG4Dtr0_6|	Detractors (0-6)
+|PG4Psv7_8|	Passives (7-8)
+|PG4Prm9_10|	Promoters (9-10)
+|PG4AllResp|	All Response
+|PG5_1RRPQ|	Resolve Reported Problems Quickly
+|PG5_2BNUI|	Backlog / # of Unresolved Issues
+|PG5_3HDS|	Helpful Discussion on StackExchange
+|PG5_4VGP|	Visible Growth in Popularity
+|PG5_5PHR|	Package's Historic Reputation
+|PG5_6SSYOP|	Scale / Size of Your Own Project
+|PG5_7NDYP|	# Developers of Your Project
+|PG5_8CP|	Computing Performances
+|PG5_9FRP|	"Familiarity with Related Packages"
+|PG5_10RPA|	Reputation of the Package's Authors
+|PG5_11NSG|	# of Stars on GitHub
+|PG5_12NWG|	# of Watchers on GitHub
+|PG5_13NFG|	# of Forks on GitHub
+|PGXResp|	Response time of question on page X
+|PGXSubmit|	The submission time of page X
+|PG5_XOrder|	The order of 13 factors the recipient take to deal with question on Page 5
+|PG5_XTime|	The completion time of dealing with factor X (e.g. 9 -> PG5_9FRP) on Page 5
+|PG0Dis|	Participati Display(Hours)
+|PG0Shown|	Participants Shown
 
 
 ## Model response variable
