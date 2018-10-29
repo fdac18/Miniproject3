@@ -6,7 +6,7 @@ after survey questions). Please follow the procedure outlined in the analysis
 lecture and provided in the example.ipynb here.
 Please do not use the values for other responses when modeling your response variable.
 
-For each question there is a response (or multiple choices or rank for the response variable) and also the time it was completed: subtracting from the previous question time you can get time it took to respond. This is so called paradata that relects the behaviour or respondents while filling the survey. 
+For each question there is a response (or multiple choices or rank for the response variable) and also the time it was completed: subtracting from the previous question time you can get time it took to respond. This is so called paradata that reflects the behaviour or respondents while filling the survey. 
 
 For extra credit please provide a recommendation on how to improve the survey, preferably based on the analysis of response data or paradata.
 
