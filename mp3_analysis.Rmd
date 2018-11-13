@@ -1,0 +1,15 @@
+---
+title: "Mp3_analysis"
+output: html_document
+---
+
+Read in the data
+```{r}
+df <- read.csv("TechSurvey - Survey.csv")
+```
+
+Look at summary statistics
+```{r}
+summary(df)
+```
+
