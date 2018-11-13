@@ -3,6 +3,12 @@ title: "Mp3_analysis"
 output: html_document
 ---
 
+Load necessary libraries
+```{r}
+library(dplyr)
+```
+
+
 Read in the data
 ```{r}
 df <- read.csv("TechSurvey - Survey.csv")
@@ -12,4 +18,12 @@ Look at summary statistics
 ```{r}
 summary(df)
 ```
+
+Remove values for other response variables
+```{r}
+df <- df %>% select(-c(PG5_1RRPQ,PG5_8CP,PG5_3HDS,PG5_4VGP,PG5_7NDYP,PG5_13NFG,PG5_9FRP,
+                       PG5_6SSYOP,PG5_10RPA,PG5_2BNUI,PG5_11NSG,PG5_12NWG))
+```
+
+
 
