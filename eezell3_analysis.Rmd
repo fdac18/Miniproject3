@@ -1,0 +1,623 @@
+---
+title: "Mp3_analysis"
+output: html_document
+---
+
+Load necessary libraries
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+For nicer printing
+```{r}
+options(digits=2)
+```
+
+
+Read in the data
+```{r}
+data <- read.csv("TechSurvey - Survey.csv",header=T,stringsAsFactors = FALSE)
+```
+
+Remove values for other response variables
+```{r}
+data <- data %>% select(-c(PG5_1RRPQ,PG5_8CP,PG5_3HDS,PG5_4VGP,PG5_7NDYP,PG5_13NFG,PG5_9FRP,
+                       PG5_6SSYOP,PG5_10RPA,PG5_2BNUI,PG5_11NSG,PG5_12NWG))
+```
+
+
+Calculate time to submit each response
+```{r}
+#convert date to unix second
+for (i in c("Start", "End")) 
+    data[,i] = as.numeric(as.POSIXct(strptime(data[,i], "%Y-%m-%d %H:%M:%S")))
+
+for (i in 0:12){
+    vnam = paste(c("PG",i,"Submit"), collapse="")
+    data[,vnam] = as.numeric(as.POSIXct(strptime(data[,vnam], "%Y-%m-%d %H:%M:%S")))
+}
+
+for (i in 1:13) {
+    vname = paste(c("PG5_",i,"Time"), collapse="")
+    data[,vname] = as.numeric(as.POSIXct(strptime(data[,vname], "%Y-%m-%d %H:%M:%S")))
+}
+
+# time to select category
+for (i in 13:1){
+    vnam = paste(c("PG5_",i,"Time"), collapse="");
+    data[,vnam] = data[,vnam] - data[,"PG4Submit"];
+}
+
+#calculate differences in time    
+for (i in 12:0){
+    pv = paste(c("PG",i-1,"Submit"), collapse="");
+    if (i==0) 
+        pv="Start";
+    vnam = paste(c("PG",i,"Submit"), collapse="");
+    data[,vnam] = data[,vnam] -data[,pv];
+}
+```
+
+Answer simple questions
+Time to take entire survey?
+```{r}
+# we must subtract end from start to get time to take entire survey
+data$tot_time = (data$End - data$Start)/60.0
+
+print(sum(data$tot_time > 30, na.rm = TRUE))
+
+# create histogram of total time to take survey, ignoring participants who did not complete the survey
+ggplot(data = data[data$tot_time <= 30,], aes(tot_time)) + 
+  geom_histogram() +
+  xlab("Total Survey Time (minutes)") +
+  ylab("Frequency")
+
+print(sum(data$tot_time < 10, na.rm = TRUE)/nrow(data))
+summary(data[data$tot_time <= 30,"tot_time"])
+```
+
+Question that took the longest to complete?
+Question that took the least time?
+```{r, fig.width=5,fig.height=5}
+# create data frame of submit times
+submit_time <- data %>% filter(tot_time <= 30) %>% select(ends_with("Submit"))
+
+ggplot(data = gather(submit_time), aes(value)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(~key) +
+  xlim(0, 100) +
+  xlab("time to answer question (seconds)") +
+  ylab("frequency")
+
+summary(submit_time)
+```
+
+
+
+Top-ranked criteria? (part 1)
+```{r, fig.width=5,fig.height=5}
+criteria <- data %>% select(starts_with("PG5")) %>% select(ends_with("Order"))
+
+colnames(criteria) <- c("Resolve Reported Problems Quickly",
+                        "Backlog / # of Unresolved Issues",
+                        "Helpful Discussion on StackExchange",
+                        "Visible Growth in Popularity",
+                        "Package's Historic Reputation",
+                        "Scale / Size of Your Own Project",
+                        "# Developers of Your Project",
+                        "Computing Performances",
+                        "Familiarity with Related Packages",
+                        "Reputation of the Package's Authors",
+                        "# of Stars on GitHub",
+                        "# of Watchers on GitHub",
+                        "# of Forks on GitHub")
+
+ggplot(data = gather(criteria), aes(value)) +
+  geom_bar(binwidth = 1) +
+  facet_wrap(~key) +
+  xlab("order") +
+  ylab("frequency")
+```
+
+
+Demographic distribution by age?
+```{r}
+mytable <- table(data %>% select(PG12Resp) %>% filter(PG12Resp != ""))
+lbls <- paste(names(mytable), "\n", mytable, sep="")
+pie(mytable, 
+  	main="Survey Ages")
+```
+
+
+Clean data
+```{r}
+data <- data %>% select(-c(Start,End)) # remove start and end
+
+# Device clean
+data[which(data$Device == "PC"),"Device"] <- 1
+data[which(data$Device == "Phone"),"Device"] <- 0
+data[which(data$Device == "Tablet"),"Device"] <- 0
+data[which(data$Device == "Unknown"),"Device"] <- NA
+data[which(data$Device == ""),"Device"] <- NA
+data <- data[-which(data$Device == "Bot"),]
+data <- transform(data, Device = as.numeric(Device))
+
+# Completed clean
+data[which(data$Completed == "TRUE"),"Completed"] <- 1
+data[which(data$Completed == "FALSE"), "Completed"] <- 0
+data[which(data$Completed == "0"), "Completed"] <- 0
+data <- transform(data, Completed = as.integer(Completed))
+
+# PG1PsnUse
+data[which(data$PG1PsnUse == ""),"PG1PsnUse"] <- 0
+data[which(data$PG1PsnUse == "For personal work and/or research use"),"PG1PsnUse"] <- 1
+data[which(data$PG1PsnUse != "0" & data$PG1PsnUse != "1"),"PG1Other"] <- data[which(data$PG1PsnUse != "0" & data$PG1PsnUse != "1"),"PG1PsnUse"]
+data[which(data$PG1PsnUse != "0" & data$PG1PsnUse != "1"),"PG1PsnUse"] <- 1
+data <- transform(data, PG1PsnUse = as.integer(PG1PsnUse))
+
+# PG1WdAuth
+data[which(data$PG1WdAuth == ""),"PG1WdAuth"] <- 0
+data[which(data$PG1WdAuth == "For a wider audience, such as developers of other packages or other software"),"PG1WdAuth"] <- 1
+data[which(data$PG1WdAuth != "0" & data$PG1WdAuth != "1"),"PG1Other"] <- data[which(data$PG1WdAuth != "0" & data$PG1WdAuth != "1"),"PG1WdAuth"]
+data[which(data$PG1WdAuth != "0" & data$PG1WdAuth != "1"),"PG1WdAuth"] <- 1
+data <- transform(data, PG1WdAuth = as.integer(PG1WdAuth))
+
+
+# PG1Trn
+data[which(data$PG1Trn == ""),"PG1Trn"] <- 0
+data[which(data$PG1Trn == "For a training / class that I took"),"PG1Trn"] <- 1
+data[which(data$PG1Trn != "0" & data$PG1Trn != "1"),"PG1Other"] <- data[which(data$PG1Trn != "0" & data$PG1Trn != "1"),"PG1Trn"]
+data[which(data$PG1Trn != "0" & data$PG1Trn != "1"),"PG1Trn"] <- 1
+data <- transform(data, PG1Trn = as.integer(PG1Trn))
+
+# PG1Other
+data[which(data$PG1Other == ""),"PG1Other"] <- 0
+data[which(data$PG1Other != "0"),"PG1Other"] <- 1
+data <- transform(data, PG1Other = as.integer(PG1Other))
+
+# PG2Resp
+data[which(data$PG2Resp == ""),"PG2Resp"] <- NA
+data[which(data$PG2Resp == "Yes"),"PG2Resp"] <- 1
+data[which(data$PG2Resp == "No"),"PG2Resp"] <- 0
+
+data$PG2Resp_ns <- data$PG2Resp
+data[which(data$PG2Resp_ns == "0" | data$PG2Resp_ns == "1"),"PG2Resp_ns"] <- 0
+data[which(data$PG2Resp_ns == "Not sure"),"PG2Resp_ns"] <- 1
+data <- transform(data, PG2Resp_ns = as.integer(PG2Resp_ns))
+
+data[which(data$PG2Resp == "Not sure"),"PG2Resp"] <- NA
+data <- transform(data, PG2Resp = as.integer(PG2Resp))
+
+
+# PG2Resp.1
+data[which(data$PG2Resp.1 == ""),"PG2Resp.1"] <- NA
+data$PG2Resp.1_ans1 <- data$PG2Resp.1
+data[which(data$PG2Resp.1_ans1 == "The core \"data.frame\" object lacked functionality that I needed"),"PG2Resp.1_ans1"] <- 1
+data[which(data$PG2Resp.1_ans1 != "1" & !is.na(data$PG2Resp.1_ans1)),"PG2Resp.1_ans1"] <- 0
+data <- transform(data, PG2Resp.1_ans1 = as.integer(PG2Resp.1_ans1))
+
+data$PG2Resp.1_ans2 <- data$PG2Resp.1
+data[which(data$PG2Resp.1_ans2 == "Chose the package to be compatible with other packages in my project"),"PG2Resp.1_ans2"] <- 1
+data[which(data$PG2Resp.1_ans2 != "1" & !is.na(data$PG2Resp.1_ans2)),"PG2Resp.1_ans2"] <- 0
+data <- transform(data, PG2Resp.1_ans2 = as.integer(PG2Resp.1_ans2))
+
+data$PG2Resp.1_ans3 <- data$PG2Resp.1
+data[which(data$PG2Resp.1_ans3 == "I saw a recommendation for the package"),"PG2Resp.1_ans3"] <- 1
+data[which(data$PG2Resp.1_ans3 != "1" & !is.na(data$PG2Resp.1_ans3)),"PG2Resp.1_ans3"] <- 0
+data <- transform(data, PG2Resp.1_ans3 = as.integer(PG2Resp.1_ans3))
+
+data$PG2Resp.1_ans4 <- data$PG2Resp.1
+data[which(data$PG2Resp.1_ans4 == "I didn't choose to use the package, it was included implicitly / unintentionally"),"PG2Resp.1_ans4"] <- 1
+data[which(data$PG2Resp.1_ans4 != "1" & !is.na(data$PG2Resp.1_ans4)),"PG2Resp.1_ans4"] <- 0
+data <- transform(data, PG2Resp.1_ans4 = as.integer(PG2Resp.1_ans4))
+
+data$PG2Resp.1_ansOther <- data$PG2Resp.1
+
+data[which(data$PG2Resp.1_ansOther != "The core \"data.frame\" object lacked functionality that I needed" & data$PG2Resp.1_ansOther != "Chose the package to be compatible with other packages in my project" & data$PG2Resp.1_ansOther != "I saw a recommendation for the package" & data$PG2Resp.1_ansOther != "I didn't choose to use the package, it was included implicitly / unintentionally" & !is.na(data$PG2Resp.1_ansOther)),"PG2Resp.1_ansOther"] <- 1
+data[which(data$PG2Resp.1_ansOther == "The core \"data.frame\" object lacked functionality that I needed" | data$PG2Resp.1_ansOther == "Chose the package to be compatible with other packages in my project" | data$PG2Resp.1_ansOther == "I saw a recommendation for the package" | data$PG2Resp.1_ansOther == "I didn't choose to use the package, it was included implicitly / unintentionally"),"PG2Resp.1_ansOther"] <- 0
+data <- transform(data, PG2Resp.1_ansOther = as.integer(PG2Resp.1_ansOther))
+
+# PG5_5PHR, change to class labels
+data[which(data$PG5_5PHR == ""),"PG5_5PHR"] <- NA
+data[which(data$PG5_5PHR == "Not a Priority"),"PG5_5PHR"] <- 0
+data[which(data$PG5_5PHR == "Low Priority"),"PG5_5PHR"] <- 1
+data[which(data$PG5_5PHR == "Medium Priority"),"PG5_5PHR"] <- 2
+data[which(data$PG5_5PHR == "High Priority"),"PG5_5PHR"] <- 3
+data[which(data$PG5_5PHR == "Essential"),"PG5_5PHR"] <- 4
+data <- transform(data, PG5_5PHR = as.integer(PG5_5PHR))
+
+# PG5_5PHR_bin, make reduced binary classification
+data$PG5_5PHR_bin <- data$PG5_5PHR
+data[which(data$PG5_5PHR_bin == 0),"PG5_5PHR_bin"] <- 0
+data[which(data$PG5_5PHR_bin == 1),"PG5_5PHR_bin"] <- 0
+data[which(data$PG5_5PHR_bin == 2),"PG5_5PHR_bin"] <- 0
+data[which(data$PG5_5PHR_bin == 3),"PG5_5PHR_bin"] <- 1
+data[which(data$PG5_5PHR_bin == 4),"PG5_5PHR_bin"] <- 1
+data <- transform(data, PG5_5PHR_bin = as.integer(PG5_5PHR_bin))
+
+
+# PG6Resp
+data[which(data$PG6Resp == ""),"PG6Resp"] <- NA
+data[which(data$PG6Resp == "Less than 2 years"),"PG6Resp"] <- 1
+data[which(data$PG6Resp == "2 - 5 years"),"PG6Resp"] <- 2
+data[which(data$PG6Resp == "6 - 8 years"),"PG6Resp"] <- 3
+data[which(data$PG6Resp == "9 - 12 years"),"PG6Resp"] <- 4
+data[which(data$PG6Resp == "13 - 19 years"),"PG6Resp"] <- 5
+data[which(data$PG6Resp == "20 years or more"),"PG6Resp"] <- 6
+data <- transform(data, PG6Resp = as.integer(PG6Resp))
+
+
+# PG7R
+data[which(data$PG7R == ""),"PG7R"] <- 0
+data[which(data$PG7R == "R"),"PG7R"] <- 1
+data[which(data$PG7R != "0" & data$PG7R != "1"),"PG7Other"] <- data[which(data$PG7R != "0" & data$PG7R != "1"),"PG7R"]
+data[which(data$PG7R != "0" & data$PG7R != "1"),"PG7R"] <- 1
+data <- transform(data, PG7R = as.integer(PG7R))
+
+# PG7C.C..
+data[which(data$PG7C.C.. == ""),"PG7C.C.."] <- 0
+data[which(data$PG7C.C.. == "C/C++"),"PG7C.C.."] <- 1
+data[which(data$PG7C.C.. != "0" & data$PG7C.C.. != "1"),"PG7Other"] <- data[which(data$PG7C.C.. != "0" & data$PG7C.C.. != "1"),"PG7C.C.."]
+data[which(data$PG7C.C.. != "0" & data$PG7C.C.. != "1"),"PG7C.C.."] <- 1
+data <- transform(data, PG7C.C.. = as.integer(PG7C.C..))
+
+# PG7Java
+data[which(data$PG7Java == ""),"PG7Java"] <- 0
+data[which(data$PG7Java == "Java"),"PG7Java"] <- 1
+data[which(data$PG7Java != "0" & data$PG7Java != "1"),"PG7Other"] <- data[which(data$PG7Java != "0" & data$PG7Java != "1"),"PG7Java"]
+data[which(data$PG7Java != "0" & data$PG7Java != "1"),"PG7Java"] <- 1
+data <- transform(data, PG7Java = as.integer(PG7Java))
+
+# PG7Python
+data[which(data$PG7Python == ""),"PG7Python"] <- 0
+data[which(data$PG7Python == "Python"),"PG7Python"] <- 1
+data[which(data$PG7Python != "0" & data$PG7Python != "1"),"PG7Other"] <- data[which(data$PG7Python != "0" & data$PG7Python != "1"),"PG7Python"]
+data[which(data$PG7Python != "0" & data$PG7Python != "1"),"PG7Python"] <- 1
+data <- transform(data, PG7Python = as.integer(PG7Python))
+
+# PG7Javascript
+data[which(data$PG7Javascript == ""),"PG7Javascript"] <- 0
+data[which(data$PG7Javascript == "Javascript"),"PG7Javascript"] <- 1
+data[which(data$PG7Javascript != "0" & data$PG7Javascript != "1"),"PG7Other"] <- data[which(data$PG7Javascript != "0" & data$PG7Javascript != "1"),"PG7Javascript"]
+data[which(data$PG7Javascript != "0" & data$PG7Javascript != "1"),"PG7Javascript"] <- 1
+data <- transform(data, PG7Javascript = as.integer(PG7Javascript))
+
+# PG7Go
+data[which(data$PG7Go == ""),"PG7Go"] <- 0
+data[which(data$PG7Go == "Go"),"PG7Go"] <- 1
+data[which(data$PG7Go != "0" & data$PG7Go != "1"),"PG7Other"] <- data[which(data$PG7Go != "0" & data$PG7Go != "1"),"PG7Go"]
+data[which(data$PG7Go != "0" & data$PG7Go != "1"),"PG7Go"] <- 1
+data <- transform(data, PG7Go = as.integer(PG7Go))
+
+# PG7C.
+data[which(data$PG7C. == ""),"PG7C."] <- 0
+data[which(data$PG7C. == "C#"),"PG7C."] <- 1
+data[which(data$PG7C. != "0" & data$PG7C. != "1"),"PG7Other"] <- data[which(data$PG7C. != "0" & data$PG7C. != "1"),"PG7C."]
+data[which(data$PG7C. != "0" & data$PG7C. != "1"),"PG7C."] <- 1
+data <- transform(data, PG7C. = as.integer(PG7C.))
+
+# PG7Other
+data[which(data$PG7Other == ""),"PG7Other"] <- 0
+data[which(data$PG7Other != "0"),"PG7Other"] <- 1
+data <- transform(data, PG7Other = as.integer(PG7Other))
+
+# PG8Resp
+data[which(data$PG8Resp == ""),"PG8Resp"] <- NA
+data$SoftwareEngineer <- data$PG8Resp
+data[which(data$SoftwareEngineer == "Software Engineer"),"SoftwareEngineer"] <- 1
+data[which(data$SoftwareEngineer != "1" & !is.na(data$SoftwareEngineer)),"SoftwareEngineer"] <- 0
+data <- transform(data, SoftwareEngineer = as.integer(SoftwareEngineer))
+
+data$DataScientist <- data$PG8Resp
+data[which(data$DataScientist == "Data Scientist"),"DataScientist"] <- 1
+data[which(data$DataScientist != "1" & !is.na(data$DataScientist)),"DataScientist"] <- 0
+data <- transform(data, DataScientist = as.integer(DataScientist))
+
+
+data[which(data$PG8Resp == ""),"PG8Resp"] <- NA
+data[grep("professor", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "teacher"
+data[grep("teach", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "teacher"
+data[grep("student", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "student"
+data[grep("assist", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "student"
+data[grep("research", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "researcher"
+data[grep("scientist", data$PG8Resp, ignore.case = TRUE, perl = TRUE, value = FALSE),"PG8Resp"] <- "researcher"
+
+data[which(!is.na(data$PG8Resp) &
+       data$PG8Resp != "teacher" &
+       data$PG8Resp != "student" &
+       data$PG8Resp != "researcher"),
+    "PG8Resp"] <- "other professional"
+
+data$Teacher <- data$PG8Resp
+data[which(data$Teacher == "teacher"),"Teacher"] <- 1
+data[which(data$Teacher != "1" & !is.na(data$Teacher)),"Teacher"] <- 0
+data <- transform(data, Teacher = as.integer(Teacher))
+
+data$Student <- data$PG8Resp
+data[which(data$Student == "student"),"Student"] <- 1
+data[which(data$Student != "1" & !is.na(data$Student)),"Student"] <- 0
+data <- transform(data, Student = as.integer(Student))
+
+data$Researcher <- data$PG8Resp
+data[which(data$Researcher == "researcher"),"Researcher"] <- 1
+data[which(data$Researcher != "1" & !is.na(data$Researcher)),"Researcher"] <- 0
+data <- transform(data, Researcher = as.integer(Researcher))
+
+data$Professional <- data$PG8Resp
+data[which(data$Professional == "other professional"),"Professional"] <- 1
+data[which(data$Professional != "1" & !is.na(data$Professional)),"Professional"] <- 0
+data <- transform(data, Professional = as.integer(Professional))
+
+# PG9Resp
+data[which(data$PG9Resp == ""),"PG9Resp"] <- NA
+data[which(data$PG9Resp == "1"),"PG9Resp"] <- 1
+data[which(data$PG9Resp == "2 - 3"),"PG9Resp"] <- 2
+data[which(data$PG9Resp == "4 - 6"),"PG9Resp"] <- 3
+data[which(data$PG9Resp == "7 - 10"),"PG9Resp"] <- 4
+data[which(data$PG9Resp == "11 - 15"),"PG9Resp"] <- 5
+data[which(data$PG9Resp == "16 - 25"),"PG9Resp"] <- 6
+data[which(data$PG9Resp == "More than 25"),"PG9Resp"] <- 7
+data <- transform(data, PG9Resp = as.integer(PG9Resp))
+
+# PG10Resp
+data[which(data$PG10Resp == ""),"PG10Resp"] <- NA
+data[which(data$PG10Resp == "Not native - very limited"),"PG10Resp"] <- 0
+data[which(data$PG10Resp == "Not native - passable"),"PG10Resp"] <- 1
+data[which(data$PG10Resp == "Not native - limited working proficiency"),"PG10Resp"] <- 2
+data[which(data$PG10Resp == "Not native - sufficient working proficiency"),"PG10Resp"] <- 3
+data[which(data$PG10Resp == "Not native - full working proficiency"),"PG10Resp"] <- 4
+data[which(data$PG10Resp == "Native"),"PG10Resp"] <- 5
+data <- transform(data, PG10Resp = as.integer(PG10Resp))
+
+data$PG10Resp_native <- data$PG10Resp
+data[which(data$PG10Resp_native > 0 & data$PG10Resp_native < 5),"PG10Resp_native"] <- 0
+data[which(data$PG10Resp_native == 5),"PG10Resp_native"] <- 1
+data <- transform(data, PG10Resp_native = as.integer(PG10Resp_native))
+
+# PG11Resp
+data[which(data$PG11Resp == ""),"PG11Resp"] <- NA
+data[which(data$PG11Resp == "Prefer not to answer"),"PG11Resp"] <- NA
+data[which(data$PG11Resp == "Male"),"PG11Resp"] <- 1
+data[which(data$PG11Resp == "Female"),"PG11Resp"] <- 0
+data <- transform(data, PG11Resp = as.integer(PG11Resp))
+
+# PG12Resp
+data[which(data$PG12Resp == ""),"PG12Resp"] <- NA
+data[which(data$PG12Resp == "18 - 24"),"PG12Resp"] <- 1
+data[which(data$PG12Resp == "25 - 34"),"PG12Resp"] <- 2
+data[which(data$PG12Resp == "35 - 44"),"PG12Resp"] <- 3
+data[which(data$PG12Resp == "45 - 54"),"PG12Resp"] <- 4
+data[which(data$PG12Resp == "55 - 64"),"PG12Resp"] <- 5
+data[which(data$PG12Resp == "65 and over"),"PG12Resp"] <- 6
+data <- transform(data, PG12Resp = as.integer(PG12Resp))
+```
+
+
+eliminate things from dataset
+```{r}
+data <- data %>% select(-c(PG8Resp,PG2Resp.1)) # remove these variablse that are non-numeric
+
+# remove all rows where response variable PG5_5PHR is missing
+data <- data[-which(is.na(data$PG5_5PHR)),]
+
+# remove rows where it took particpant more than 30 minutes to complete the survey
+data <- data %>% filter(tot_time < 30)
+
+data <- data %>% select(-c(Completed))
+```
+
+
+Look at summary statistics and decide what to transform and remove
+```{r}
+summary(data)
+```
+
+
+log-transform time variables
+```{r}
+log_time <- log(data %>% select(ends_with("Submit"),ends_with("Time"),tot_time))
+data[,colnames(log_time)] <- log_time
+```
+
+
+Look at summary statistics after transform
+```{r}
+summary(data)
+```
+
+
+histogram of total time after transformation
+```{r}
+ggplot(data = data, aes(tot_time)) + 
+  geom_histogram() +
+  xlab("Total Survey Time (log(minutes))") +
+  ylab("Frequency")
+```
+
+Interpret basic summaries
+```{r,fig.width=10,fig.height=10}
+#get numeric fields only for correlation
+sel = c()
+for (i in 1:dim(data)[2]) if (is.numeric(data[,i])) sel = c(sel, i);
+
+
+cor_matrix <- cor(data[,sel],method="spearman",use="pairwise.complete.obs"); #OK for any: uses ranks
+
+library(reshape2)
+melted_cormat <- melt(cor_matrix)
+head(melted_cormat)
+
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+upper_tri <- get_upper_tri(cor_matrix)
+upper_tri
+
+# Melt the correlation matrix
+library(reshape2)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Heatmap
+library(ggplot2)
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Spearman\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()+
+ ggtitle("Correlation Heatmap")
+```
+
+
+Decide on which predictors to consider
+```{r}
+data <- data %>% select(-ends_with("Time"))
+data <- data %>% select(-starts_with("PG0"))
+data <- data %>% select(-c(Device))
+for (i in 1:12) {
+  if (i == 5) i <- i + 1
+  vname <- paste(c("PG",i,"Submit"), collapse = "")
+  if (vname %in% colnames(data)) {
+    data <- data %>% select(-c(vname))
+  }
+}
+data <- data[,-grep("^pg4[^a]", colnames(data), ignore.case = TRUE, perl = TRUE, value = FALSE)]
+data <- data %>% select(-ends_with("Order"))
+```
+
+
+Look at summary again
+```{r}
+summary(data)
+```
+
+  	
+```{r}
+mytable <- table(data %>% select(PG5_5PHR))
+lbls <- paste(names(mytable), "\n", mytable, sep="")
+pie(mytable, 
+  	main="Package Historic Reputation Responses")
+
+mytable <- table(data %>% select(PG5_5PHR_bin))
+lbls <- paste(names(mytable), "\n", mytable, sep="")
+pie(mytable, 
+  	main="Binary Package Historic Reputation Responses")
+```
+
+
+Correlation analysis
+```{r,fig.width=5,fig.height=5}
+#get numeric fields only for correlation
+sel = c()
+for (i in 1:dim(data)[2]) if (is.numeric(data[,i])) sel = c(sel, i);
+
+
+cor_matrix <- cor(data[,sel],method="spearman",use="pairwise.complete.obs"); #OK for any: uses ranks
+
+library(reshape2)
+melted_cormat <- melt(cor_matrix)
+head(melted_cormat)
+
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+upper_tri <- get_upper_tri(cor_matrix)
+upper_tri
+
+# Melt the correlation matrix
+library(reshape2)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Heatmap
+library(ggplot2)
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Spearman\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()+
+ ggtitle("Correlation Heatmap")
+```
+
+
+
+```{r}
+library(aod)
+mod <- lm(PG5_5PHR_bin ~ PG1PsnUse + PG1WdAuth + PG1Trn + PG1Other + PG2Resp + PG4AllResp + PG5Submit + PG6Resp + PG7R + PG7C.C.. + PG7Java + PG7Python + PG7Javascript + PG7Go + PG7C. + PG7Other + PG9Resp + PG10Resp + PG11Resp + PG12Resp + PG2Resp_ns + PG2Resp.1_ans1 + PG2Resp.1_ans2 + PG2Resp.1_ans3 + PG2Resp.1_ans4 + PG2Resp.1_ansOther + SoftwareEngineer + DataScientist + Teacher + Student + Researcher + Professional + PG10Resp_native, data = data)
+summary(mod)
+```
+
+```{r}
+library(class)
+data2 <- na.omit(data)
+pred_data <- data2 %>% select(-starts_with("PG5_5"))
+resp_data <- data2 %>% select(PG5_5PHR)
+
+idxs <- sample(1:nrow(pred_data),as.integer(0.7*nrow(pred_data)))
+train <- pred_data[idxs,]
+test <- pred_data[-idxs,]
+cl <- resp_data[idxs,]
+
+knn_model <- knn(train = train, test = test, cl = cl, k=6)
+attributes(.Last.value)
+
+cm = as.matrix(table(Actual = resp_data[-idxs,], Predicted = knn_model))
+print(cm)
+```
+
+```{r}
+data2 <- na.omit(data)
+pred_data <- data2 %>% select(-starts_with("PG5_5"))
+resp_data <- data2 %>% select(PG5_5PHR_bin)
+
+idxs <- sample(1:nrow(pred_data),as.integer(0.7*nrow(pred_data)))
+train <- pred_data[idxs,]
+test <- pred_data[-idxs,]
+cl <- resp_data[idxs,]
+
+knn_model <- knn(train = train, test = test, cl = cl, k=6)
+attributes(.Last.value)
+
+cm = as.matrix(table(Actual = resp_data[-idxs,], Predicted = knn_model))
+print(cm)
+```
+
+```{r}
+ actual = c('a','b','c')[runif(100, 1,4)] # actual labels
+ predicted = actual # predicted labels
+ predicted[runif(30,1,100)] = actual[runif(30,1,100)]  # introduce incorrect predictions
+ cm = as.matrix(table(Actual = actual, Predicted = predicted)) # create the confusion matrix
+ cm
+```
+
+
+```{r}
+mod <- lm(PG5_5PHR_bin ~ PG1PsnUse + PG1WdAuth + PG1Trn + PG2Resp + PG4AllResp + PG5Submit + PG6Resp + PG9Resp + PG10Resp + PG11Resp + PG12Resp, data = data)
+summary(mod)
+```
+```
+
+
+
