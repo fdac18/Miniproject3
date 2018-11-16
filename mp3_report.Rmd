@@ -1,0 +1,236 @@
+---
+title: "FDAC: MiniProject3"
+author: "Cai John"
+date: "November 16, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyr)
+library(useful)
+library(plyr)
+library(randomForest)
+library(caret)
+library(textclean)
+
+# Read in the data
+data <- read.csv("TechSurvey - Survey.csv",header=T);
+
+# Convert date to unix second
+for (i in c("Start", "End")) 
+  data[,i] = as.numeric(as.POSIXct(strptime(data[,i], "%Y-%m-%d %H:%M:%S")))
+for (i in 0:12){
+  vnam = paste(c("PG",i,"Submit"), collapse="")
+  data[,vnam] = as.numeric(as.POSIXct(strptime(data[,vnam], "%Y-%m-%d %H:%M:%S")))
+}
+
+# Calculate differences in time    
+for (i in 12:0){
+  pv = paste(c("PG",i-1,"Submit"), collapse="");
+  if (i==0) 
+    pv="Start";
+  vnam = paste(c("PG",i,"Submit"), collapse="");
+  data[,vnam] = data[,vnam] -data[,pv];
+}
+```
+
+## Introduction
+For MiniProject3 we are asked to clean and analyze the results of a developer survery. Data has been provided in a raw format and we are asked to answer multiple "simple" questions, and then proceed to build a predictive model for the responses to one of the survey questions.
+
+## Data
+The inital data set has 1353 samples and 82 different feature columns. These columns include the responses to individual questions in the survey as well as para-data relating to the time taken to answer each question. These time columns have been cleaned to provide the number of seconds taken to answer each question.
+
+## Simple questions
+We have been given the following questions to answer:
+
+1. Time to take entire survey?
+2. Question that took the longest to complete?
+3. Question that took the least time?
+4. Top-ranked criteria?
+5. Demographic distribution by age?
+
+Using the code below, we can answer these questions, note that answers are stated explicitly below the code block.
+
+```{r simple_questions, eval=TRUE}
+# Total time to complete
+complete_time= mean(data$End - data$Start, na.rm = TRUE)
+
+# Extract response time columns
+question_times<- data[,grep(pattern = "Submit", x= colnames(data),value=TRUE)]
+
+# Get average time for each question
+time_means<- apply(question_times[,-c(1)], 2, mean, na.rm=TRUE)
+
+# Longest question
+longQ<- names(time_means)[which(time_means==max(time_means))]
+
+# Shortest question
+shortQ<- names(time_means)[which(time_means==min(time_means))]
+
+# Extract ranked critera columns
+ranked_col<- data[,grep(pattern = "PG5", x= colnames(data),value=TRUE)]
+ranked_col<- data[,grep(pattern = "Order", x= colnames(ranked_col),value=TRUE)]
+
+# Mean ranking of each criteria
+criteria_means<- apply(ranked_col, 2, mean, na.rm=TRUE)
+
+# Highest ranked criteria
+highRank<- names(criteria_means)[which(criteria_means==max(criteria_means))]
+```
+
+1. Average time to take survey: 680 seconds.
+2. The question that on average took the longest to complete is Question 5. This is unsurprising given that it is the most involved, asking participants to give a rank to each category.
+3. The quickest question was Question 11, which is logical given that it asks the gender of the participant.
+4. On average the top ranked criteria out of those asked to be ranked in Question 5 is `Backlog/# Unresolved Issues`.
+5. We can inspect the demographic age distribution visually in the plot below.
+
+
+```{r age_plot, eval=TRUE, echo=FALSE}
+# Age distribution
+age_freq <- data[,81] %>%
+              count() %>%
+              .[-c(1),]
+
+# Plot distribution
+ggplot(age_freq, aes(x, freq)) +
+    geom_col(fill="red") +
+    xlab("Age Group") +
+    ylab("Number of participants") +
+    ggtitle("Demographic Distribution by Age")
+```
+
+
+
+## Predictive Model
+Having answered the simple questions, I can now proceed to clean the data and reduce its dimensions and then build a predictive model. I have chosen to use a random forest as my model because it is easily interpretable and will allow me to evaluate which question responses contribute most to classification.
+
+To clarify, I have been assigned to classify the priority rank given to the response on Question 5 of `Helpful Discussion on StackExchange`. The possible values of priority rank are `Not a Priority`, `Low priority`, `Medium Priority`, `High Priority` and `Essential`.
+
+#### Data Prep
+To summarize my approach to data preparation I have inspected all the columns for their values and what they represent, I have then selected only a subset of these to retain based on what seems relevant to my response category. I have also dropped all columns for Question 5 except my specific response category. Once this was done I dropped all rows (or samples) that had no value for my response variable as these will not be useful in training or for prediction.
+
+Taking it one step further I inspected the correlations of all the remaining columns at this point. I extracted the column pairs that have an absolute value of correlation greater than 70%. Inspecting these, they are largely meta-data such as correlations between start time and end time of the survey. Expecting this will not be informative for prediction, I have dropped these columns.
+
+I followed this procedure by also dropping columns that have too many unique values to be useful. I.e. if 50% of samples all have unique values, there is too much variation to develop a learning rule on this factor. I also standardized categorical variables with larger than necessary response classes, i.e. all values in `PG1Psn` were changed to `Personal use` instead of the plethora of classes that existed in this column. This will facilitate development of a learning rule on this factor.
+
+All these manipulations were performed using the code in the block below.
+
+```{r pressure, echo=TRUE}
+################
+# Clean data for model
+################
+# Columns to drop
+col_drop= c("PG4Dtr0_6", "PG4Psv7_8", "PG4Prm9_10", "PG5_1RRPQ", "PG5_1Order", "PG5_1Time", "PG5_2BNUI",
+            "PG5_2Order", "PG5_2Time", "PG5_4VGP","PG5_4Order", "PG5_4Time" , "PG5_5PHR",
+            "PG5_5Order", "PG5_5Time", "PG5_6SSYOP", "PG5_6Order", "PG5_6Time", "PG5_7NDYP",   
+            "PG5_7Order", "PG5_7Time", "PG5_8CP", "PG5_8Order", "PG5_8Time", "PG5_9FRP",
+            "PG5_9Order", "PG5_9Time", "PG5_10RPA", "PG5_10Order", "PG5_10Time", "PG5_11NSG",
+            "PG5_11Order", "PG5_11Time",  "PG5_12NWG","PG5_12Order", "PG5_12Time",
+            "PG5_13NFG", "PG5_13Order", "PG5_13Time")
+
+# Drop these columns
+model_data<- data[,-c(which(colnames(data) %in% col_drop))]
+
+# Fix incorrect colname
+colnames(model_data)[15]<- "PG3Resp"
+
+# Preserve only PG5 columns needed
+model_data<- model_data[,c(1:19, 22:43)]
+
+# Rearrange df so response is far left column
+model_data<- model_data[,c(19,1:18,20:ncol(model_data))]
+
+# Remove all samples with no response value
+model_data<- model_data[-c(which(model_data[,1]=="")),]
+
+# Drop columns with too many unique responses to be useful
+## i.e. PG3Resp and PG8Resp
+model_data<- model_data[,-c(16, 32)]
+
+# Explore variables
+summary(model_data)
+
+# Examine variable correlations
+sel = c()
+for (i in 1:dim(model_data)[2]) if (is.numeric(model_data[,i])) sel = c(sel, i);
+corr<- cor(model_data[,sel],method="spearman",use="pairwise.complete.obs")
+
+# Drop highly correlated columns
+related<- which(abs(corr)>0.7 & abs(corr)<0.999999, arr.ind = TRUE)
+
+## Of the columns returned, those highly correlated seem uninformative
+## They have been dropped
+model_data<- model_data[,-which(names(model_data) %in% rownames(related))]
+
+# Fix PG1 column factor levels
+model_data$PG1PsnUse<- as.character(model_data$PG1PsnUse)
+model_data$PG1PsnUse[which(model_data$PG1PsnUse!="")]<- "Personal use"
+model_data$PG1PsnUse<- as.factor(model_data$PG1PsnUse)
+
+model_data$PG1WdAuth<- as.character(model_data$PG1WdAuth)
+model_data$PG1WdAuth[which(model_data$PG1WdAuth!="")]<- "Wider audience"
+model_data$PG1WdAuth<- as.factor(model_data$PG1WdAuth)
+
+model_data$PG1Trn<- as.character(model_data$PG1Trn)
+model_data$PG1Trn[which(model_data$PG1Trn!="")]<- "Training"
+model_data$PG1Trn<- as.factor(model_data$PG1Trn)
+
+model_data$PG1Other<- as.character(model_data$PG1Other)
+model_data$PG1Other[which(model_data$PG1Other!="")]<- "Other"
+model_data$PG1Other<- as.factor(model_data$PG1Other)
+
+# Fix levels of response variable
+model_data$PG5_3HDS<- as.factor(as.character(model_data$PG5_3HDS))
+
+```
+
+
+
+
+#### Execute model and intrepret
+Now that the data is prepared for modelling fitting, I have split it into two sets, 75% of samples into a training set and the remaining 25% as a test set. Training and then predicting on the test set I achieve an accuracy of 35%. While this does not seem outstanding, the classification task is difficult in that the responses to the other questions do not intuitively seem like they would provide great insight into the priority rank of the response. The accuracy can be improved if we shift the problem from 5-class classification to 3-class. These classes can be created by combining `Essential` and `High Priority` into a single class, and `Low Priority` and `No Priority` into a single class. Using these, we obtain a classification accuracy of 47%. These results have been obtained using the code below.
+
+```{r model, echo=TRUE}
+# Split model_data into train and test
+train_index<- createDataPartition(model_data$PG5_3HDS, p=0.75)
+train<- model_data[train_index$Resample1,]
+test<- model_data[setdiff(rownames(model_data), rownames(train)),]
+
+# Run randomForest
+rf<- randomForest(PG5_3HDS ~ . , data=train, na.action = na.omit, importance=TRUE)
+
+# Predict and compute accuracy
+pred<- predict(rf, test)
+acc<- (length(which((pred==test$PG5_3HDS)==TRUE)))/nrow(test)
+
+# Group class labels and check accuracy
+pred_cond<- mgsub(pred, c("Essential", "High Priority", "Medium Priority", "Low Priority", "Not a Priority"),
+                  c(3, 3, 2, 1, 1))
+true_cond<- mgsub(test$PG5_3HDS, c("Essential", "High Priority", "Medium Priority", "Low Priority", "Not a Priority"),
+                  c(3, 3, 2, 1, 1))
+acc_cond<- (length(which((pred_cond==true_cond)==TRUE)))/nrow(test)
+```
+
+
+
+We are interested in determining which variables contribute the most to this classification. We can gain insight on this by plotting which variables result in the greatest decrease in mean accuracy and Gini Index.
+
+
+```{r, echo=FALSE}
+# Plot variable importance
+varImpPlot(rf, n.var = 10, main = "Variable Importance")
+```
+
+
+This implies that the most important factors determining how you rank `Helpful Discussion on StackExchange` are "Whether this commit represents the first time the package was introduced to your project", the primary programming language of the participant, and whether they identify as a Software Engineer, Data Scientist or Other.
+
+## Conclusion
+In conclusion, all assigned simple questions have been answered regarding the survey data. A predictive model has been built for my response variable and the effectiveness of this model evaluated. We have gained further insight into the problem by inspecting which question responses contributed most significantly to model performance.
+
+
+
+
+
+
