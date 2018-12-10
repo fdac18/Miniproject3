@@ -1,5 +1,20 @@
 ```{r}
 #for this project I wanted to see the correlation between the male and female responses and the values that they selected for the how essential is response time question.The reasoning behind this choice is that generally men are considered more impulsive and less patient than women so they might have made the speed more essential. As well as those who responded with prefer not to answer or NA as this might be a default incase one skipped the question.
+
+# hypothesis: I think the priority of fast response time will be affected by whether the respondee is male or female
+
+#We are just comparing the priorities of fast response time as numeric values with essetial being the top and non essential being the lowest
+
+#
+
+#The overall correlation for the data is not very good (.22) so without analysing my methodology there is not a high relation between the higher priority of fast response and the gender of the responde. That being said with a coefficient of .22 there is some validity to my hypothesis that would warrant further work. This could be in the form of additional data or a refinment of the data analysis
+
+#for the data i chose to linear regression(fitting) because it is the easiest to utilize with the data we were given
+
+#with an intercept of .3851 that given our data a higher starting bias but our .0416 (weighted between male and female with a bias towards males) slope shows that as we add respondents it does not change the value of our prediction that much
+
+
+
 library(survey)
 options(digits=2);
 dat <- read.csv("TechSurvey - Survey.csv",header=T);
