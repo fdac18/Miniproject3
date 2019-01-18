@@ -1,0 +1,130 @@
+```{r}
+#for this project I wanted to see the correlation between the male and female responses and the values that they selected for the how essential is response time question.The reasoning behind this choice is that generally men are considered more impulsive and less patient than women so they might have made the speed more essential. As well as those who responded with prefer not to answer or NA as this might be a default incase one skipped the question.
+
+# hypothesis: I think the priority of fast response time will be affected by whether the respondee is male or female
+
+#We are just comparing the priorities of fast response time as numeric values with essetial being the top and non essential being the lowest
+
+#
+
+#The overall correlation for the data is not very good (.22) so without analysing my methodology there is not a high relation between the higher priority of fast response and the gender of the responde. That being said with a coefficient of .22 there is some validity to my hypothesis that would warrant further work. This could be in the form of additional data or a refinment of the data analysis
+
+#for the data i chose to linear regression(fitting) because it is the easiest to utilize with the data we were given
+
+#with an intercept of .3851 that given our data a higher starting bias but our .0416 (weighted between male and female with a bias towards males) slope shows that as we add respondents it does not change the value of our prediction that much
+
+
+
+library(survey)
+options(digits=2);
+dat <- read.csv("TechSurvey - Survey.csv",header=T);
+
+#convert date to unix second
+for (i in c("Start", "End")) 
+    dat[,i] = as.numeric(as.POSIXct(strptime(dat[,i], "%Y-%m-%d %H:%M:%S")))
+for (i in 0:12){
+    vnam = paste(c("PG",i,"Submit"), collapse="")
+    dat[,vnam] = as.numeric(as.POSIXct(strptime(dat[,vnam], "%Y-%m-%d %H:%M:%S")))
+}
+#calculate differences in time    
+for (i in 12:0){
+    pv = paste(c("PG",i-1,"Submit"), collapse="");
+    if (i==0) 
+        pv="Start";
+    vnam = paste(c("PG",i,"Submit"), collapse="");
+    dat[,vnam] = dat[,vnam] -dat[,pv];
+}
+
+```
+
+
+```{r}
+hiCor <- function(x, level){
+  res <- cor(x,method="spearman");
+  res1 <- res; res1[res<0] <- -res[res < 0];
+  for (i in 1:dim(x)[2]){
+    res1[i,i] <- 0;
+  }
+  sel <- apply(res1,1,max) > level;
+  res[sel,sel];
+}
+#hiCor(dat,.7)
+```
+
+```{r}
+#creating the survey analysis file by loading in our data
+#initially attempted to use the surve design methis
+svey= svydesign(
+         ids = ~1,   
+         data = dat,
+         weights =1)
+
+```
+
+
+```{r}
+# using this we were able to pull the mean and standard error from relevant columns
+ svymean(~PG5_1RRPQ, design = svey) 
+svytotal(~PG5_1RRPQ, design=svey)
+ svymean(~PG11Resp, design = svey) 
+svytotal(~PG11Resp, svey)
+```
+
+```{r}
+#setting up comparison
+resp_by_sex = svyby(~PG5_1RRPQ,            #variable to estimate
+                   by=~PG11Resp,          #subgroup variable
+                   design = svey,
+                   FUN = svytotal, #function to use on each subgroup
+                   keep.names = FALSE #does not include row.names 
+                                       #for subgroup variable
+      )
+knitr::kable(resp_by_sex, digits = 7)
+#as you can see below the data is not compatible
+```
+```{r}
+# getting the confidence in further predictions
+confint(svymean(~PG5_1RRPQ, svey))
+```
+
+```{r}
+# getting a general linear progression for our data that shows the general tred downwards for the responses of spped as you go from male to female to not answer to NA
+x=data["PG5_1RRPQ"]
+y=data["PG11Resp"]
+print <- cbind(data["PG5_1RRPQ"],data["PG11Resp"])
+print(total)
+shortest <- min(length(x), length(y))
+y <- tail(y, shortest)
+x <- tail(x, shortest)
+
+#linear.reg = glm(x ~ y)
+#plot(linear.reg)
+summary(cor(total))
+#print(cor(total))
+linear.reg = lm(total)
+summary(linear.reg)
+plot(linear.reg)
+```
+
+
+```{r}
+#getting the general correlations for all points
+for(i in 1:dim(dat)[2])if(is.factor(dat[,i]))dat[,i]=as.numeric(dat[,i])
+for(i in 1:ncol(dat)){
+  dat[is.na(dat[,i]),i]<-mean(dat[,i],na.rm=TRUE)
+}
+hiCor(dat,.7)
+```
+
+```{r}
+#using code provided in class to compare r^2 values
+res <- c();
+vnam <- names(data);
+for (i in 2:dim(data)[2]){
+  fmla <- as.formula(paste(vnam[i],paste(vnam[-c(1,i)],collapse="+"),sep="~"));
+  res <- rbind(res,c(i,round(summary(lm(fmla,data=data))$r.squared,2)));
+}
+row.names(res) <- vnam[res[,1]];
+res[order(-res[,2]),];
+```
+
